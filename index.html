@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jack LD59</title>
+  </head>
+  <body style="display: flex; flex-direction: column; scale: 1; min-height: 0;">
+
+    <div style="display: flex; flex-direction: row; flex: 1; min-height: 0;">
+      <div class="hud-col">
+        <div class="hud-panel hud-panel--stat">
+          <div class="hud-stat-row">Money: $<span id="moneyValue"></span></div>
+          <canvas id="moneyChart" class="hud-chart" aria-hidden="true"></canvas>
+        </div>
+        <div class="hud-panel hud-panel--stat">
+          <div class="hud-stat-row">Stakeholder appreciation: <span id="stakeholderAppreciationValue"></span></div>
+          <canvas id="stakeholderChart" class="hud-chart" aria-hidden="true"></canvas>
+        </div>
+        <div style="display:flex; flex-direction: column; flex: 1; justify-content: space-around;" class="hud-panel">
+          <div class="wf-btn-row">
+            <button type="button" id="recordButton" class="wf-btn">Record</button>
+            <button type="button" id="listenModeButton" class="wf-btn">Listen: Live</button>
+          </div>
+          <div class="wf-btn-row">
+            <button type="button" id="beamSongEarthButton" class="wf-btn">Beam Song to Earth</button>
+          </div>
+         
+        </div>
+      </div>
+      <div id="app" style="border: 1px solid lime; flex: 1;"></div>
+    </div>
+    <div id="videoCallOverlay" class="vc-overlay" hidden>
+      <div class="vc-dialog" role="dialog" aria-modal="true" aria-label="Video call">
+        <div class="vc-header">
+          <div class="vc-title">Incoming Call</div>
+        </div>
+        <div class="vc-frame">
+          <img
+            id="videoCallImage"
+            class="vc-video"
+            src="src/assets/CEOS.png"
+          ></img>
+        </div>
+        <div id="vcGameOverPage"  hidden aria-hidden="true">
+          <div class="vc-game-over-inner">
+            <p class="vc-game-over-title">Game Over</p>
+            <button type="button" id="vcGameOverRestart" class="wf-btn">Restart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="travelConfirmOverlay" class="vc-overlay" hidden>
+      <div class="vc-dialog" role="dialog" aria-modal="true" aria-label="Confirm travel">
+        <div class="vc-header">
+          <div class="vc-title">Confirm Travel</div>
+          <button type="button" id="closeTravelConfirm" class="wf-btn vc-close">Close</button>
+        </div>
+        <div class="tc-body">
+          <div class="tc-line">
+            Destination:
+            <span id="travelConfirmPlanet" class="tc-value"></span>
+          </div>
+          <div class="tc-line">
+            Cost:
+            <span id="travelConfirmCost" class="tc-value"></span>
+          </div>
+          <div class="wf-btn-row tc-actions">
+            <button type="button" id="travelConfirmOk" class="wf-btn">Confirm</button>
+            <button type="button" id="travelConfirmCancel" class="wf-btn">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  <div id="beamSongConfirmOverlay" class="vc-overlay" hidden>
+    <div class="vc-dialog" role="dialog" aria-modal="true" aria-label="Beam Song to Earth">
+      <div class="vc-header">
+        <div class="vc-title">Beam Song to Earth</div>
+        <button type="button" id="closeBeamSongConfirm" class="wf-btn vc-close">Close</button>
+      </div>
+      <div class="tc-body">
+        <div class="tc-line">
+          Are you sure you want to beam your song to Earth?
+        </div>
+        <div id="beamSongActions" class="wf-btn-row tc-actions">
+          <button type="button" id="beamSongSendButton" class="wf-btn">Send</button>
+          <button type="button" id="beamSongCancelButton" class="wf-btn">Cancel</button>
+        </div>
+        <div id="beamSongProgressContainer" class="tc-line" style="display: none; margin-top: 16px;">
+          <span>Beaming... (<span id="beamSongProgressPercent">0</span>%)</span>
+          <div style="width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin-top: 4px;">
+            <div id="beamSongProgressBar" style="background:lime; width: 0%; height: 100%; transition: width 0.2s;"></div>
+          </div>
+        </div>
+        <div id="beamSongCompleteMsg" class="tc-line" style="display: none; margin-top: 18px; color:lime;">
+          Song beamed to Earth!
+        </div>
+      </div>
+    </div>
+  </div>
+    <div id="soundVisualizerRow" class="wf-sound-row">
+      <aside class="wf-sound-panel" style="justify-content: space-between;" aria-label="Audio controls">
+        <section class="wf-cell">
+          <div class="wf-row wf-row--band wf-row--band-range">
+            <span class="wf-range-tag" title="Post-FX output level">Gain</span>
+            <div class="wf-range-stack">
+              <div class="wf-range-row">
+                <input
+                  type="range"
+                  id="masterOutputGain"
+                  class="wf-range"
+                  min="0"
+                  max="2"
+                  step="0.01"
+                  value="1"
+                  aria-label="Master output gain"
+                />
+              </div>
+            </div>
+            <span id="masterOutputGainValue" class="wf-readout wf-readout--range">100%</span>
+          </div>
+        </section>
+        <section class="wf-cell">
+          <div class="wf-row wf-row--band wf-row--band-range">
+            <span class="wf-range-tag"  title="Pitch wobble amount">Pitch</span>
+            <div class="wf-range-stack">
+              <div class="wf-range-row">
+                <input
+                  type="range"
+                  id="pitchDepth"
+                  class="wf-range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0"
+                  aria-label="Pitch amount"
+                />
+              </div>
+            </div>
+            <span id="pitchDepthValue" class="wf-readout wf-readout--range">0%</span>
+          </div>
+        </section>
+        <section class="wf-cell">
+          <div class="wf-row wf-row--band wf-row--band-range">
+            <span class="wf-range-tag" title="Transpose playback (semitones)">Note</span>
+            <div class="wf-range-stack">
+              <div class="wf-range-row">
+                <input
+                  type="range"
+                  id="notePitchSemitones"
+                  class="wf-range"
+                  min="-12"
+                  max="12"
+                  step="1"
+                  value="0"
+                  aria-label="Note pitch in semitones"
+                />
+              </div>
+            </div>
+            <span id="notePitchSemitonesValue" class="wf-readout wf-readout--range">+0 st</span>
+          </div>
+        </section>
+       <section class="wf-cell">
+          <div class="wf-row wf-row--band wf-row--band-range">
+            <label class="wf-switch" title="Band limit">
+              <input
+                type="checkbox"
+                id="bandFrequencyCheckbox"
+                class="wf-switch__input"
+                aria-label="Enable band limit"
+              />
+              <span class="wf-switch__track" aria-hidden="true"></span>
+            </label>
+            <div class="wf-range-stack">
+              <div class="wf-range-row">
+                <span class="wf-range-tag" title="Low cutoff">Lo</span>
+                <input
+                  type="range"
+                  id="bandFrequencyLow"
+                  class="wf-range"
+                  min="50"
+                  max="4400"
+                  step="50"
+                  value="200"
+                  aria-label="Band low frequency"
+                />
+              </div>
+              <div class="wf-range-row">
+                <span class="wf-range-tag" title="High cutoff">Hi</span>
+                <input
+                  type="range"
+                  id="bandFrequencyHigh"
+                  class="wf-range"
+                  min="50"
+                  max="4400"
+                  step="50"
+                  value="2200"
+                  aria-label="Band high frequency"
+                />
+              </div>
+            </div>
+            <span id="bandFrequencyValue" class="wf-readout wf-readout--range">200 - 2200 Hz</span>
+          </div>
+        </section>
+        <section class="wf-cell">
+          <div class="wf-row wf-row--band wf-row--band-range">
+            <label class="wf-switch" title="Reverb">
+              <input
+                type="checkbox"
+                id="reverbEnabledCheckbox"
+                class="wf-switch__input"
+                aria-label="Enable reverb"
+              />
+              <span class="wf-switch__track" aria-hidden="true"></span>
+            </label>
+            <div class="wf-range-stack">
+              <div class="wf-range-row">
+                <span class="wf-range-tag" title="Wet mix">Wet</span>
+                <input
+                  type="range"
+                  id="reverbMix"
+                  class="wf-range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0.25"
+                  aria-label="Reverb wet mix"
+                />
+              </div>
+              <div class="wf-range-row">
+                <span class="wf-range-tag" title="Length (seconds)">Time</span>
+                <input
+                  type="range"
+                  id="reverbTime"
+                  class="wf-range"
+                  min="0.2"
+                  max="4"
+                  step="0.1"
+                  value="1.2"
+                  aria-label="Reverb time"
+                />
+              </div>
+            </div>
+            <span id="reverbValue" class="wf-readout wf-readout--range">25% / 1.2s</span>
+          </div>
+        </section>
+        <section class="wf-cell wf-cell--tight">
+          <div class="wf-row" style="justify-content: space-between; align-items: baseline; gap: 0.5rem;">
+            <span class="wf-label" style="margin-bottom: 0;">Next Radio Station In</span>
+            <span id="nextClipEta" class="wf-value" title="Time until orbit crosses the next 120° clip boundary (thirds of a full orbit)" aria-live="polite">—</span>
+          </div>
+        </section>
+        
+      </aside>
+      <div id="soundVisualizerWrap">
+        <canvas id="soundVisualizer"></canvas>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

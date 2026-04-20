@@ -1,0 +1,19 @@
+{
+  "name": "ld59",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:embed": "vite build && node scripts/zip-embed.mjs"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1",
+    "vite": "^5.4.11"
+  },
+  "dependencies": {
+    "three": "^0.184.0"
+  }
+}
