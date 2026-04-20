@@ -4,11 +4,20 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* Cap total page height (embeds, streaming layouts, etc.) */
+  --page-max-height: 533px;
+}
+
+html {
+  height: 100%;
+  max-height: var(--page-max-height);
+}
+
 html,
 body {
   margin: 0;
   width: 100%;
-  height: 100%;
   min-height: 0;
   overflow: hidden;
   background: #000000;
@@ -16,10 +25,29 @@ body {
   font-family: system-ui, sans-serif;
 }
 
+body {
+  height: 100%;
+  max-height: var(--page-max-height);
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-main {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
 #app {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid lime;
 }
 
 #app canvas {
@@ -59,6 +87,8 @@ body {
   flex-direction: column;
   width: 20%;
   min-width: 10rem;
+  min-height: 0;
+  align-self: stretch;
   border-right: var(--wf-line);
 }
 
@@ -105,16 +135,24 @@ body {
 .hud-chart {
   display: block;
   width: 100%;
-  height: 3rem;
-  min-height: 2.5rem;
+  height: 1.5rem;
+  max-height: 1.5rem;
+  flex-shrink: 0;
   border: 1px solid var(--wf-lime-faint);
   background: rgba(0, 0, 0, 0.35);
+}
+
+.hud-panel--actions {
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 #soundVisualizerRow.wf-sound-row {
   display: flex;
   flex-direction: row;
-  flex: 0.5;
+  flex: 1.25;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--wf-lime-muted);
@@ -132,6 +170,12 @@ body {
   font-size: 0.75rem;
   letter-spacing: 0.02em;
   color: var(--wf-lime-muted);
+  align-self: stretch;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .wf-cell {

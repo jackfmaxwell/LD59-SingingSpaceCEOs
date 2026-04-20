@@ -10,6 +10,7 @@ import {
 import {
   playVideoCallVoiceConcurrent,
   stopVideoCallVoice,
+  clearRecordedLayers,
   listCeoVoiceUrlsInFolder,
   pickRandomFromUrls,
   pickRandomDistinctUrls,
@@ -102,7 +103,9 @@ function initVideoCallPopup() {
   }
 
   let openTimer = 0
-  const pendingCallTimers = [];
+  /** Bumps each `openVideoCall`; callbacks ignore stale flow ids. */
+  let vcFlowId = 0
+  const pendingCallTimers = []
 
   function clearPendingCallTimers() {
     pendingCallTimers.forEach((id) => window.clearTimeout(id))
@@ -116,8 +119,9 @@ function initVideoCallPopup() {
   }
 
   function openVideoCall(sendingSong=true, tutorial=false) {
+    const flowId = ++vcFlowId
     const { songGood, score } = computeVcSongVerdict(getSongScoringContexts())
-    const imgSrc = songGood ? 'src/assets/CEOS_GOOD.png' : 'src/assets/CEOS_BAD.png'
+    const imgSrc = songGood ? 'assets/CEOS_GOOD.png' : 'assets/CEOS_BAD.png'
     const { stage1Url, stage1AlmostUrl } = pickVideoCallStage1Urls()
     const { stage2MainUrl, stage2AdlibUrls } = pickVideoCallStage2Urls(songGood)
     const firingURL = pickRandomFromUrls(listCeoVoiceUrlsInFolder('fired'))
@@ -152,64 +156,54 @@ function initVideoCallPopup() {
           window.setTimeout(() => {
             stopVideoCallVoice()
             image.src = imgSrc
-            // Stage 2: one main verdict + concurrent adlibs
-            void playVideoCallVoiceConcurrent(stage2MainUrl, 1)
-          
-            pendingCallTimers.push(
-              window.setTimeout(() => {
-                closeVideoCall()
-                const stakeCore = Math.round(
-                  Math.max(10, Math.min(140, 22 + Math.abs(score) * 11 + Math.max(0, score) * 6)),
+            // Stage 2: main verdict — close and apply stats when this clip ends (load + stagger + duration).
+            void playVideoCallVoiceConcurrent(stage2MainUrl, 1).then(() => {
+              if (flowId !== vcFlowId) return
+              closeVideoCall()
+              const stakeCore = Math.round(
+                Math.max(10, Math.min(140, 22 + Math.abs(score) * 11 + Math.max(0, score) * 6)),
+              )
+              const stakeJitter = Math.round((Math.random() - 0.5) * 34)
+              gameState.stakeholderAppreciation += songGood ? stakeCore + stakeJitter : -(stakeCore + stakeJitter)
+              document.querySelector('#stakeholderAppreciationValue').textContent =
+                gameState.stakeholderAppreciation.toLocaleString()
+              if (songGood) {
+                //min: 150,000, max: 900,000 (+ up to 55,000 jitter)
+                // So actual min total: 150,000, max total: 955,000
+                const moneyCore = Math.round(
+                  Math.max(100_000, Math.min(900_000, Math.max(0, score) * 40_000)),
                 )
-                const stakeJitter = Math.round((Math.random() - 0.5) * 34)
-                gameState.stakeholderAppreciation += songGood ? stakeCore + stakeJitter : -(stakeCore + stakeJitter)
-                document.querySelector('#stakeholderAppreciationValue').textContent =
-                  gameState.stakeholderAppreciation.toLocaleString()
-                if (songGood) {
-
-                  //min: 150,000, max: 900,000 (+ up to 55,000 jitter)
-                  // So actual min total: 150,000, max total: 955,000
-                  const moneyCore = Math.round(
-                    Math.max(100_000, Math.min(900_000, Math.max(0, score) * 40_000)),
-                  )
-                  gameState.money += moneyCore + Math.round(Math.random() * 300_000)
-        
-                }
-                document.querySelector('#moneyValue').textContent = gameState.money.toLocaleString()
-                recordStakeholderHistory()
-                recordMoneyHistory()
-              }, 5000),
-            )
+                gameState.money += moneyCore + Math.round(Math.random() * 300_000)
+              }
+              document.querySelector('#moneyValue').textContent = gameState.money.toLocaleString()
+              recordStakeholderHistory()
+              recordMoneyHistory()
+            })
           }, 6000),
         )
       }else{
         if(tutorial){
-          image.src = 'src/assets/CEOS_GOOD.png'
+          image.src = 'assets/CEOS_GOOD.png'
           pendingCallTimers.push(
             window.setTimeout(() => {
               stopVideoCallVoice()
-              void playVideoCallVoiceConcurrent(tutorialURL, 1)
-              pendingCallTimers.push(
-                window.setTimeout(() => {
-                  closeVideoCall()
-                }, 19*1000)
-              )
+              void playVideoCallVoiceConcurrent(tutorialURL, 1).then(() => {
+                if (flowId !== vcFlowId) return
+                closeVideoCall()
+              })
             }, 300),
           )
         }else{
-          image.src = 'src/assets/CEOS_BAD.png'
+          image.src = 'assets/CEOS_BAD.png'
           pendingCallTimers.push(
             window.setTimeout(() => {
               stopVideoCallVoice()
-              void playVideoCallVoiceConcurrent(firingURL, 1)
-              pendingCallTimers.push(
-                window.setTimeout(() => {
-                  gameState.stakeholderAppreciation = -9999999;
-                  document.querySelector('#stakeholderAppreciationValue').textContent = gameState.stakeholderAppreciation.toLocaleString()
-                  //closeVideoCall()
-                  openGameOverRecap()
-                }, 13*1000)
-              )
+              void playVideoCallVoiceConcurrent(firingURL, 1).then(() => {
+                if (flowId !== vcFlowId) return
+                gameState.stakeholderAppreciation = -9999999;
+                document.querySelector('#stakeholderAppreciationValue').textContent = gameState.stakeholderAppreciation.toLocaleString()
+                openGameOverRecap()
+              })
             }, 300),
           )
         }
@@ -218,13 +212,14 @@ function initVideoCallPopup() {
   }
 
   function closeVideoCall() {
+    vcFlowId++
     overlay.hidden = true
     if (openTimer) window.clearTimeout(openTimer)
     openTimer = 0
     clearPendingCallTimers()
     stopVideoCallVoice()
     resetAnimState()
-    image.src = 'src/assets/CEOS.png'
+    image.src = 'assets/CEOS.png'
   }
 
 
@@ -371,7 +366,7 @@ function initBeamSongConfirmPopup({ openVideoCall }) {
     cancelBtn.disabled = true
     closeBtn.disabled = true
 
-    const durationMs = 2400
+    const durationMs = 6400
     const start = performance.now()
 
     const tick = (now) => {
@@ -386,7 +381,9 @@ function initBeamSongConfirmPopup({ openVideoCall }) {
         // Restore prior listen mode, then open video (recording plays only until here).
         close(e)
         try {
+          clearRecordedLayers()
           openVideoCall?.()
+
         } catch (err) {
           console.error('Failed to open video call after beam progress', err)
         }

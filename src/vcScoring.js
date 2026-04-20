@@ -1,14 +1,5 @@
 import { planetScoring, urlSpecificScoring } from './gameState.js'
 
-/**
- * @typedef {Object} SongScoringLayer
- * @property {string} [planetKey]
- * @property {string | null} [dominantUrl]
- * @property {string | null} [dominantSoundFile]
- * @property {Record<string, unknown> | null} [filters]
- * @property {number} [notePitchSemitones]
- */
-
 function planetScoreForKey(planetKey) {
   const k = String(planetKey ?? '').trim().toLowerCase()
   if (!k) return 0
@@ -54,7 +45,7 @@ export function lookupUrlSpecificScore(url, dominantSoundFile) {
   const file = fileNameFromUrl(url)
   const stemFromMeta = logicalAssetStem(dominantSoundFile || file || '')
   const s = pathnameTail(url)
-  if(!urlSpecificScoring) return -3;
+  if(!url) return -3;
   for (const [key, val] of Object.entries(urlSpecificScoring)) {
     const nk = String(key).replace(/\\/g, '/').toLowerCase()
     const keyFile = nk.split('/').pop() || ''
@@ -80,7 +71,6 @@ export function lookupUrlSpecificScore(url, dominantSoundFile) {
 
 /**
  * Map baked-in FX choices to a roughly symmetric contribution (CEO taste).
- * @param {Record<string, unknown> | null | undefined} filters
  */
 export function scoreFilterSnapshot(filters) {
   if (!filters) return 0
@@ -126,10 +116,11 @@ export function scoreFilterSnapshot(filters) {
 
 function notePitchContribution(semitones) {
   const st = Math.abs(Number(semitones) || 0)
-  if (st <= 1) return 1.1
-  if (st <= 5) return -0.9
-  if (st >= 8) return 1.4
-  return -Math.min(5, (st - 9) * 0.75)
+  // Optimal positive contribution for modest pitch shift, less for too small and too high
+  if (st <= 1) return 0.9    // low pitch shift, small positive
+  if (st <= 5) return 1.65   // ideal range, highest contribution
+  if (st <= 8) return 1.2    // still good, slightly less
+  return 0.6                 // large shifts get lower, but still positive
 }
 
 export function computeVcSongVerdict(contexts, opts) {
@@ -143,7 +134,10 @@ export function computeVcSongVerdict(contexts, opts) {
   let noteSum = 0
 
   for (const c of list) {
-    planetSum += planetScoreForKey(c.planetKey)
+    console.log('c', c)
+    if(c.dominantUrl){
+      planetSum += planetScoreForKey(c.planetKey)
+    }
     urlSum += lookupUrlSpecificScore(c.dominantUrl, c.dominantSoundFile)
     filterSum += scoreFilterSnapshot(c.filters)
     noteSum += notePitchContribution(c.notePitchSemitones)
@@ -153,10 +147,11 @@ export function computeVcSongVerdict(contexts, opts) {
   const url = urlSum / n
   const filter = filterSum / n
   const note = noteSum / n
-  const jitter = (random() - 0.5) * 16
+  const jitter = (random() - 0.5) * 7
 
   const score = planet + url + filter + note + jitter
-  const songGood = score >= 2
+  const songGood = score >= 0
+  console.log('score', score, planet, url, filter, note, jitter)
   return {
     songGood,
     score,

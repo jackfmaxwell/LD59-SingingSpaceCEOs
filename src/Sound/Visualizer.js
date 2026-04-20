@@ -12,11 +12,15 @@ const DEG_PER_CLIP_SEGMENT = 360 / MAX_PLANET_CLIPS
 //this stores the clips and swaps between them when the segment changes
 const crossfade = {
   planetKey: null,
+  clipsPlanetKey: null,
   mode: 'buffer',
   clips: [],
   active: null,
   lastClipIndex: -1,
 }
+
+let planetClipsLoad = null
+let planetClipsLoadKey = null
 
 //the note pitch is the playback rate
 let notePitchSemitones = 0
@@ -147,6 +151,21 @@ function setRecordUiState() {
   recordButton.textContent = count >= MAX_LAYERS ? `Record (full)` : `Record (${count}/${MAX_LAYERS})`
 }
 
+export function clearRecordedLayers() {
+  for (const layer of layers) {
+    try {
+      layer?.source?.stop?.()
+    } catch (_) {}
+    try {
+      layer?.source?.disconnect?.()
+    } catch (_) {}
+    try {
+      layer?.gain?.disconnect?.()
+    } catch (_) {}
+  }
+  layers.length = 0
+  setRecordUiState()
+}
 
 async function addLayerFromBlob(blob, recordedFrom = null) {
   if(layers.length >= MAX_LAYERS) {
@@ -435,16 +454,47 @@ if (masterOutputGain) {
   masterOutputGain.addEventListener('input', syncMasterOutputGainUi)
 }
 
-const audioUrlsByPath = {
-  ...import.meta.glob('../assets/audio/**/*.mp3', {
-    eager: true,
-    as: 'url',
-  }),
-  ...import.meta.glob('../assets/audio/**/*.wav', {
-    eager: true,
-    as: 'url',
-  }),
+const PUBLIC_AUDIO_RELATIVE_PATHS = [
+  'assets/audio/ceos/adlibs/NerdAdlib_Thatsright.wav',
+  'assets/audio/ceos/adlibs/NerdAdlib_Thatsright2.wav',
+  'assets/audio/ceos/adlibs/NerdAdlib_Thatsright3.wav',
+  'assets/audio/ceos/adlibs/NerdAdlib_YesBoss1.wav',
+  'assets/audio/ceos/adlibs/NerdAdlib_YesBoss2.wav',
+  'assets/audio/ceos/adlibs/NerdAdlib_YesBoss3.wav',
+  'assets/audio/ceos/bad/BAD.wav',
+  'assets/audio/ceos/bad/BADBADBAD.wav',
+  'assets/audio/ceos/bad/PoorPeformance.wav',
+  'assets/audio/ceos/bad/TakeALookChart.wav',
+  'assets/audio/ceos/decisionIs/StakeholdersTalking.wav',
+  'assets/audio/ceos/decisionIs/TheSongWas.wav',
+  'assets/audio/ceos/decisionIs/TheyThink.wav',
+  'assets/audio/ceos/fired/FIRED.wav',
+  'assets/audio/ceos/good/WeLikedWhatWeHearing.wav',
+  'assets/audio/ceos/good/WeLikeWhatwerehearing2.wav',
+  'assets/audio/ceos/hello/CanYouHearUs.wav',
+  'assets/audio/ceos/hello/IsThisOn.wav',
+  'assets/audio/ceos/welcome/TUTORIAL.wav',
+  'assets/audio/country/banjo.mp3',
+  'assets/audio/country/MyBootsFreedom.wav',
+  'assets/audio/disco/707kick_160BPM.mp3',
+  'assets/audio/disco/DISCOPLANETYA.wav',
+  'assets/audio/disco/hype.mp3',
+  'assets/audio/disco/piano.mp3',
+  'assets/audio/earth/EarthNews.wav',
+  'assets/audio/earth/Spokenword.wav',
+  'assets/audio/rock/ELECTRICGUITAR_160bpm.mp3',
+  'assets/audio/rock/hithat3sec_160BPM.mp3',
+]
+
+function publicAssetUrl(relFromSiteRoot) {
+  const rel = String(relFromSiteRoot).replace(/^\/+/, '')
+  const base = import.meta.env.BASE_URL || '/'
+  return base.endsWith('/') ? `${base}${rel}` : `${base}/${rel}`
 }
+
+const audioUrlsByPath = Object.fromEntries(
+  PUBLIC_AUDIO_RELATIVE_PATHS.map((p) => [p, publicAssetUrl(p)]),
+)
 
 function normalizeAudioGlobPath(p) {
   return String(p).replace(/\\/g, '/')
@@ -499,7 +549,7 @@ export function getSongScoringContexts() {
 
 function getPlanetClipUrls(planetName) {
   const key = planetKeyFromName(planetName)
-  const prefix = `../assets/audio/${key}/`
+  const prefix = `assets/audio/${key}/`
   const urls = []
   for (const [p, url] of Object.entries(audioUrlsByPath)) {
     if (p.toLowerCase().startsWith(prefix)) urls.push(url)
@@ -523,7 +573,6 @@ async function getPlanetClips(planetName) {
 
   if (!planetClipsCache.has(key)) {
     const urls = getPlanetClipUrls(key) //Get the URLS for the planet
-    console.log('urls', urls, key)
     //Set the audio buffers for the planet
     planetClipsCache.set(
       key,
@@ -690,17 +739,29 @@ function getRecordingSourceMetadata(planetName, angleDeg) {
 async function ensurePlanetCrossfade(planetName) {
   const key = planetKeyFromName(planetName)
   if (!key) return
-  if (crossfade.planetKey === key) return
+  if (crossfade.clipsPlanetKey === key) return
 
-  stopNodePair(crossfade.active)
-  crossfade.active = null
-  crossfade.lastClipIndex = -1
+  if (planetClipsLoadKey !== key || !planetClipsLoad) {
+    planetClipsLoadKey = key
+    planetClipsLoad = (async () => {
+      stopNodePair(crossfade.active)
+      crossfade.active = null
+      crossfade.lastClipIndex = -1
+      crossfade.clips = []
 
-  crossfade.planetKey = key
-  const result = await getPlanetClips(key) //Get the audio buffers for the planet
-  crossfade.mode = result.mode
-  crossfade.clips = result.clips.slice(0, MAX_PLANET_CLIPS)
-  if (!crossfade.clips.length) return
+      const result = await getPlanetClips(key)
+      if (planetKeyFromName(gameState.currentPlanet?.name) !== key) return
+
+      crossfade.mode = result.mode
+      crossfade.planetKey = key
+      crossfade.clips = result.clips.slice(0, MAX_PLANET_CLIPS)
+      crossfade.clipsPlanetKey = key
+      // Clips array changed; same segment index must still rebuild the graph (was old buffers).
+      crossfade.lastClipIndex = -1
+    })()
+  }
+
+  await planetClipsLoad
 }
 
 function tickPlanetAudio() {
@@ -770,9 +831,13 @@ export function stopVideoCallVoice() {
 }
 
 
+/**
+ * Plays a CEO voice line on the video-call bus (may overlap other concurrent lines).
+ * Resolves when this clip finishes playback (including after `stopVideoCallVoice`, which still fires `ended`).
+ */
 export async function playVideoCallVoiceConcurrent(url, gainValue = 1) {
   console.log('playing video call voice', url)
-  if (!url) return
+  if (!url) return Promise.resolve()
   const gen = videoCallGeneration
   ensureAudioRunning()
   try {
@@ -785,7 +850,7 @@ export async function playVideoCallVoiceConcurrent(url, gainValue = 1) {
       buffer = await context.decodeAudioData(arr.slice(0))
       videoCallBufferCache.set(url, buffer)
     }
-    if (gen !== videoCallGeneration) return
+    if (gen !== videoCallGeneration) return Promise.resolve()
     const src = context.createBufferSource()
     src.buffer = buffer
     const gain = context.createGain()
@@ -793,14 +858,27 @@ export async function playVideoCallVoiceConcurrent(url, gainValue = 1) {
     src.connect(gain)
     gain.connect(voiceCallBus)
     videoCallActiveSources.add(src)
-    src.onended = () => {
-      videoCallActiveSources.delete(src)
-    }
-    setTimeout(() => {
-      src.start(0)
-    }, Math.random() * 1000 + 800);
+    const staggerMs = Math.random() * 1000 + 800
+    return new Promise((resolve) => {
+      src.onended = () => {
+        videoCallActiveSources.delete(src)
+        resolve()
+      }
+      window.setTimeout(() => {
+        if (gen !== videoCallGeneration) {
+          resolve()
+          return
+        }
+        try {
+          src.start(0)
+        } catch {
+          resolve()
+        }
+      }, staggerMs)
+    })
   } catch (err) {
     console.warn('Video call voice failed', err)
+    return Promise.resolve()
   }
 }
 

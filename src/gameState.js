@@ -33,14 +33,14 @@ export const planetNameToKey = {
 export const planetScoring = {
   country: -5,
   rock: 5,
-  disco: 3,
-  afro: 1,
-  earth: 0,
+  disco: 6,
+  earth: -10,
 }
 export const urlSpecificScoring = {
-  'src/assets/audio/country/banjo.mp3': 10,
-  'src/assets/audio/disco/707kick_160BPM.mp3': 10,
-  'src/assets/audio/rock/hithat3sec_160BPM.mp3': 10,
+  'assets/audio/country/banjo.mp3': 10,
+  'assets/audio/disco/707kick_160BPM.mp3': 10,
+  'assets/audio/rock/hithat3sec_160BPM.mp3': 10,
+  'assets/audio/disco/hype.mp3': 10,
 }
 
 

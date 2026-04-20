@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Jack LD59</title>
   </head>
-  <body style="display: flex; flex-direction: column; scale: 1; min-height: 0;">
+  <body>
 
-    <div style="display: flex; flex-direction: row; flex: 1; min-height: 0;">
+    <div class="layout-main">
       <div class="hud-col">
         <div class="hud-panel hud-panel--stat">
           <div class="hud-stat-row">Money: $<span id="moneyValue"></span></div>
@@ -18,7 +18,7 @@
           <div class="hud-stat-row">Stakeholder appreciation: <span id="stakeholderAppreciationValue"></span></div>
           <canvas id="stakeholderChart" class="hud-chart" aria-hidden="true"></canvas>
         </div>
-        <div style="display:flex; flex-direction: column; flex: 1; justify-content: space-around;" class="hud-panel">
+        <div class="hud-panel hud-panel--actions">
           <div class="wf-btn-row">
             <button type="button" id="recordButton" class="wf-btn">Record</button>
             <button type="button" id="listenModeButton" class="wf-btn">Listen: Live</button>
@@ -29,7 +29,7 @@
          
         </div>
       </div>
-      <div id="app" style="border: 1px solid lime; flex: 1;"></div>
+      <div id="app"></div>
     </div>
     <div id="videoCallOverlay" class="vc-overlay" hidden>
       <div class="vc-dialog" role="dialog" aria-modal="true" aria-label="Video call">
